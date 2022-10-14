@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from copy import deepcopy
 class Actor(nn.Module):
-    def __init__(self,state_dim,latent_action_dim) -> None:
+    def __init__(self,state_dim,latent_action_dim,range = 1) -> None:
         super(Actor,self).__init__()
         '''
         map state into latent action
@@ -13,13 +13,15 @@ class Actor(nn.Module):
             nn.ReLU(),
             nn.Linear(128,64),
             nn.ReLU(),
-            nn.Linear(64,latent_action_dim)
+            nn.Linear(64,latent_action_dim),
+            nn.Tanh()
         )
+        self.range = range
 
     def forward(self,state:torch.Tensor):
         if isinstance(state,np.ndarray):
             state = torch.from_numpy(state).cuda().to(torch.float32)
-        return self.Actorencoder(state)
+        return self.range * self.Actorencoder(state)
 
 
 
