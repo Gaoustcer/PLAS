@@ -10,8 +10,8 @@ class TrainCVAE(object):
         self.dataset = Maze2d()
         self.dataloader = DataLoader(self.dataset,batch_size=64)
         self.EPOCH = 8
-        self.CVAE = torch.load('model/CVAEpretrain').cuda()
-        # self.CVAE = ActionVAE(state_dim=self.dataset.env.observation_space.shape[0],action_dim=self.dataset.env.action_space.shape[0],latent_dim=3).cuda()
+        # self.CVAE = torch.load('model/CVAEpretrain').cuda()
+        self.CVAE = ActionVAE(state_dim=self.dataset.env.observation_space.shape[0],action_dim=self.dataset.env.action_space.shape[0],latent_dim=3).cuda()
         self.optim = torch.optim.Adam(self.CVAE.parameters(),lr = 0.0001)
         self.writer = SummaryWriter("./logs/trainVAE")
         self.index = 0
@@ -20,14 +20,19 @@ class TrainCVAE(object):
     
 
     def validation(self):
+        index = 0
         # for epoch in range(self.EPOCH):
         for states,actions,_,_,_ in tqdm(self.dataloader):
             self.states = states.cuda()
             self.actions = actions.cuda()
             pred_actions = self.CVAE.deduction(self.states)
             loss = F.mse_loss(pred_actions,self.actions)
+            
             self.writer.add_scalar("validation",loss,self.validateindex)
             self.validateindex += 1
+            index += 1
+            if index == 16:
+                return
 
         pass
     def trainanepoch(self):
@@ -46,9 +51,13 @@ class TrainCVAE(object):
 
     def train(self):
         for epoch in range(self.EPOCH):
+            # index = 0
             for states,actions,_,_,_ in tqdm(self.dataloader):
                 self.states = states.cuda()
                 self.actions = actions.cuda()
                 self.trainanepoch()
+                # self.index 
+                if self.index % 32 == 0:
+                    self.validation()
 
     

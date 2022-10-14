@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 import numpy as np
+from copy import deepcopy
 class Actor(nn.Module):
     def __init__(self,state_dim,latent_action_dim) -> None:
         super(Actor,self).__init__()
@@ -25,7 +26,7 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self,state_dim,action_dim) -> None:
         super(Critic,self).__init__()
-        self.Stateactionvaluenet = nn.Sequential(
+        self.Stateactionvaluenetleft = nn.Sequential(
             nn.Linear(state_dim + action_dim,64),
             nn.ReLU(),
             nn.Linear(64,32),
@@ -34,6 +35,7 @@ class Critic(nn.Module):
             nn.ReLU(),
             nn.Linear(16,1)
         )
+        self.Stateactionvaluenetright = deepcopy(self.Stateactionvaluenetleft)
         self.Statevaluenet = nn.Sequential(
             nn.Linear(state_dim,64),
             nn.ReLU(),
@@ -51,4 +53,4 @@ class Critic(nn.Module):
             action = torch.from_numpy(action).cuda().to(torch.float32)
         
         feature = torch.concat([state,action],-1)
-        return self.Stateactionvaluenet(feature),self.Statevaluenet(state)
+        return self.Stateactionvaluenetleft(feature),self.Stateactionvaluenetright(feature),self.Statevaluenet(state)

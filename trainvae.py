@@ -3,7 +3,8 @@ import torch
 
 if __name__ == "__main__":
     CVAE = TrainCVAE()
-    # CVAE.train()
     
-    # torch.save(CVAE,"model/CVAEpretrain")
-    CVAE.validation()
+    CVAE.train()
+    
+    torch.save(CVAE.CVAE,"model/CVAEpretrain")
+    # CVAE.validation()

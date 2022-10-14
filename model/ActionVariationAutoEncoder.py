@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from copy import deepcopy
+from torch.distributions import Normal
 class ActionVAE(nn.Module):
     def __init__(self,state_dim,action_dim,latent_dim) -> None:
         super(ActionVAE,self).__init__()
@@ -28,6 +29,7 @@ class ActionVAE(nn.Module):
             nn.Linear(16,action_dim),
             nn.Tanh()
         )
+        # self.noiseg
 
     def forward(self,state,action):
         if isinstance(state,np.ndarray):
@@ -49,8 +51,9 @@ class ActionVAE(nn.Module):
         if len(state.shape) == 1:
             state = state.unsqueeze(0).cuda()
         if latentvariable == None:
-            latentvariable = torch.randn_like(state)
-        feature = torch.concat([state,feature],-1)
+            latentvariable = torch.randn_like(torch.ones((state.shape[0],self.latentdim)).cuda())
+            
+        feature = torch.concat([state,latentvariable],-1)
         return self.Decoder(feature)
 
 if __name__ == "__main__":
