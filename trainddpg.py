@@ -6,4 +6,5 @@ if __name__ == "__main__":
     # torch.multiprocessing.set_start_method("spawn")
     Online = OnlineAgent(envname='maze2d-umaze-v1',parallelnumber=4)
     # Online.policyvalidate()
+    Online.random()
     Online.learn()
