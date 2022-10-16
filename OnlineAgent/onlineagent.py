@@ -43,7 +43,7 @@ class OnlineAgent(BasePolicy):
         self.episteps = 1024
         self.nabla = nabla
         self.buffer = buffer(state_dim=self.state_dim,action_dim=self.action_dim,max_size=int(1e6))
-        self.writer = SummaryWriter("./logs/DDPGDuelingOUnoise")
+        self.writer = SummaryWriter("./logs/DDPGDueling")
         self.losstriger = 1
         self.testenv = gym.make(envname)
         self.noiseadd = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),sigma=0.2)
@@ -78,7 +78,7 @@ class OnlineAgent(BasePolicy):
     
     def epslearn(self):
         from tqdm import tqdm
-        done = False
+        done = True
         for step in tqdm(range(self.episteps)):
             if done:
                 state = self.env.reset()
@@ -110,6 +110,11 @@ class OnlineAgent(BasePolicy):
                 action = self.action(state)
                 ns,r,done,_ = self.env.step(action)
                 self.buffer.push_memory(state,action,r,ns)
+                if learn:
+                    self.learnanapoch()
+                    if id % 8 == 0:
+                        self._softupdate()
+                id += 1
                 state = ns
 
     def _softupdate(self):
@@ -140,19 +145,19 @@ class OnlineAgent(BasePolicy):
                 # self.buffer.push_memory(state,action,r,ns)
                 state = ns
         return reward/self.validatetime
-    # def learn(self):
-    #     from tqdm import tqdm
-    #     self.collect(learn=False)
-    #     for epoch in tqdm(range(self.epoch)):
-    #         self.collect()
-    #         # for _ in range(4):
-    #         # self.learnanapoch()
-    #         self.learnanapoch()
-    #         self._softupdate()
-    #         if epoch % 8 == 0:
-    #             reward = self.policyvalidate()
+    def learn(self):
+        from tqdm import tqdm
+        self.collect(learn=False)
+        for epoch in tqdm(range(self.epoch)):
+            self.collect()
+            # for _ in range(4):
+            # self.learnanapoch()
+            # self.learnanapoch()
+            # self._softupdate()
+            # if epoch % 8 == 0:
+            reward = self.policyvalidate()
                 
-    #             self.writer.add_scalar("reward",reward,epoch)
+            self.writer.add_scalar("reward",reward,epoch)
     #         pass
     
     def random(self):

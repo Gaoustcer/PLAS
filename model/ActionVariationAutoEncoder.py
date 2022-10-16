@@ -48,6 +48,7 @@ class ActionVAE(nn.Module):
     def deduction(self,state,latentvariable=None):
         if isinstance(state,np.ndarray):
             state = torch.from_numpy(state)
+        state = state.cuda()
         if len(state.shape) == 1:
             state = state.unsqueeze(0).cuda()
         if latentvariable == None:

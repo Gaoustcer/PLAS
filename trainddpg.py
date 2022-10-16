@@ -7,5 +7,5 @@ if __name__ == "__main__":
     Online = OnlineAgent(envname='maze2d-umaze-v1',parallelnumber=4)
     # Online.policyvalidate()
     # Online.random()
-    # Online.learn()
-    Online.paramupdate()
+    Online.learn()
+    # Online.paramupdate()
