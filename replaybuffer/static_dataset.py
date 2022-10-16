@@ -3,10 +3,10 @@ import gym
 from torch.utils.data import Dataset
 import numpy as np
 class Maze2d(Dataset):
-    def __init__(self,load_from_file = False) -> None:
+    def __init__(self,envname,load_from_file = False) -> None:
         super(Maze2d,self).__init__()
         if load_from_file == False:
-            self.env = gym.make('maze2d-large-v1')
+            self.env = gym.make(envname)
             self.dataset = d4rl.qlearning_dataset(self.env)
             self.len = len(self.dataset['actions'])
         else:

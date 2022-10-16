@@ -40,6 +40,7 @@ class OnlineAgent(BasePolicy):
         self.env = gym.make(envname)
         self.sampletime = 64
         self.sampleepi = 4
+        self.episteps = 1024
         self.nabla = nabla
         self.buffer = buffer(state_dim=self.state_dim,action_dim=self.action_dim,max_size=int(1e6))
         self.writer = SummaryWriter("./logs/DDPGDuelingOUnoise")
@@ -64,20 +65,40 @@ class OnlineAgent(BasePolicy):
             while done == False:
                 action = self.action(state)
                 ns,r,done,_ = self.env.step(action)
-                id += 1
+                _id += 1
                 self.buffer.push_memory(state,action,r,ns)
                 self.learnanapoch()
                 # if id % 8 == 0:
                 self._softupdate()
-                if id % 16 == 0:
+                if _id % 128 == 0:
                     reward = self.policyvalidate()
                     self.writer.add_scalar('reward',reward,self.rewardindex)
                     self.rewardindex += 1
                 state = ns
+    
+    def epslearn(self):
+        from tqdm import tqdm
+        done = False
+        for step in tqdm(range(self.episteps)):
+            if done:
+                state = self.env.reset()
+                done = False
+            action = self.action(state)
+            ns,r,done,_ = self.env.step(action)
+            self.buffer.push_memory(state,action,r,ns)
+            self.learnanapoch()
+            if step % 16 == 0:
+                self._softupdate()
+            state = ns 
 
     def paramupdate(self):
+        self.collect()
         for epoch in range(self.epoch):
-            self.learnaneps()
+            # self.learnaneps()
+            self.epslearn()
+            reward = self.policyvalidate()
+            self.writer.add_scalar('reward',reward,self.rewardindex)
+            self.rewardindex += 1
 
     def collect(self,learn = True):
         
