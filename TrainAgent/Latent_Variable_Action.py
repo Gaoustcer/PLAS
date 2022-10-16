@@ -18,11 +18,11 @@ class LAPOAgent(object):
         self.action_dim = len(self.env.action_space.sample())
         self.latent_dim = latent_dim
         self.Actor = Actor(state_dim=self.state_dim,latent_action_dim=self.latent_dim,range=self.env.action_space.high[0]).cuda()
-        self.Critic = SingleCritic(state_dim=self.state_dim,action_dim=self.action_dim)
+        self.Critic = SingleCritic(state_dim=self.state_dim,action_dim=self.action_dim).cuda()
         self.optimActor = torch.optim.Adam(self.Actor.parameters(),lr = 0.0001)
         self.optimCirtic = torch.optim.Adam(self.Critic.parameters(),lr = 0.001)
         if load_from_pretrainVAE:
-            self.Conditional_Action_Variation_AutoEncoder = torch.load(modelpath)
+            self.Conditional_Action_Variation_AutoEncoder = torch.load(modelpath).cuda()
         else:
             self.Conditional_Action_Variation_AutoEncoder = ActionVAE(state_dim=self.state_dim,action_dim=self.action_dim,latent_dim=self.latent_dim).cuda()
         self.staticdataset = Maze2d(envname)
@@ -65,20 +65,28 @@ class LAPOAgent(object):
                 reward += r
                 state = ns
         return reward/self.validationepisode
+    
+    def random(self):
+        from tqdm import tqdm
+        for epoch in tqdm(range(self.epoch)):
+            result = self.validate()
+            self.writer('LAPO/baseline',result,epoch)
     def learn(self):
         from tqdm import tqdm
         _id = 1
         for epoch in range(self.epoch):
-            for state,action,reward,nextstate in tqdm(self.loader):
+            for state,action,reward,nextstate,done in tqdm(self.loader):
+                if _id % 32 == 0:
+                    r = self.validate()
+                    self.writer.add_scalar("LAPO/reward",r,_id)
                 self.state = state.cuda()
-                self.action = action.cuda()
+                self.action = action.cuda().to(torch.float32)
                 self.reward = reward.cuda()
                 self.nextstate = nextstate.cuda()
+                self.done = done.cuda()
                 self.CriticUpdate()
                 self.ActorUpdate()
-                if _id % 32 == 0:
-                    reward = self.validate()
-                    self.writer.add_scalar("LAPO/reward",reward,_id)
+                
                     # self.rewardindex += 1
                 _id += 1
 
@@ -90,11 +98,14 @@ class LAPOAgent(object):
         # self.latent_action = self.Actor(self.state)
         with torch.no_grad():
             nextactions = self.getactionfromstate(self.nextstate)
+            # print("shape of state",self.nextstate.shape)
+            # print("shape of actions",nextactions.shape)
+            # print("action is",nextactions)
             nextvalues = self.TargetCritic(self.nextstate,nextactions).squeeze()
-            nextvalues = self.gamma * nextvalues + self.reward
+            nextvalues = self.gamma * (~self.done) * nextvalues + self.reward
         self.optimCirtic.zero_grad()
         currentvalues = self.Critic(self.state,self.action).squeeze()
-        loss = F.mse_loss(currentvalues,nextactions)
+        loss = F.mse_loss(currentvalues,nextvalues)
         loss.backward()
         self.optimCirtic.step()
     

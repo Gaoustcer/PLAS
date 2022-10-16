@@ -74,6 +74,6 @@ class SingleCritic(nn.Module):
         if isinstance(action,np.ndarray):
             action = torch.from_numpy(action).cuda().to(torch.float32)
         
-        feature = torch.concat([state,action],-1)
+        feature = torch.concat([state,action],-1).cuda()
         return self.Criticnet(feature)
         # return self.Stateactionvaluenetleft(feature),self.Stateactionvaluenetright(feature),self.Statevaluenet(state)
