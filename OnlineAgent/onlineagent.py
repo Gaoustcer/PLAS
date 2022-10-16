@@ -32,24 +32,52 @@ class OnlineAgent(BasePolicy):
         self.targetactornet = deepcopy(self.actornet)
         self.targetcriticnet = deepcopy(self.criticnet)
         self.range = -self.env.action_space.low[0]
-        # self.sigma = 0.1
-        self.validatetime = 4
+        self.sigma = 0.1
+        self.validatetime = 16
         self.tau = 0.001
-        self.epoch = 1024
+        self.epoch = 128
         # self.collectsteps = 1024
         self.env = gym.make(envname)
         self.sampletime = 64
         self.sampleepi = 4
         self.nabla = nabla
         self.buffer = buffer(state_dim=self.state_dim,action_dim=self.action_dim,max_size=int(1e6))
-        self.writer = SummaryWriter("./logs/DDPGDueling")
+        self.writer = SummaryWriter("./logs/DDPGDuelingOUnoise")
         self.losstriger = 1
+        self.testenv = gym.make(envname)
         self.noiseadd = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),sigma=0.2)
-    def action(self,state):
+        self.rewardindex = 1
+    def action(self,state,noise=True):
         action = self.actornet(state).cpu().detach().numpy()
+        if noise == False:
+            return action
         action += self.noiseadd.noise()
         return action
-        # return np.clip(np.random.normal(action,self.sigma),a_min=-self.range,a_max=self.range)
+        return np.clip(np.random.normal(action,self.sigma),a_min=-self.range,a_max=self.range)
+
+    def learnaneps(self):
+        _id = 0
+        from tqdm import tqdm
+        for _ in tqdm(range(self.sampleepi)):
+            done = False
+            state = self.env.reset()
+            while done == False:
+                action = self.action(state)
+                ns,r,done,_ = self.env.step(action)
+                id += 1
+                self.buffer.push_memory(state,action,r,ns)
+                self.learnanapoch()
+                # if id % 8 == 0:
+                self._softupdate()
+                if id % 16 == 0:
+                    reward = self.policyvalidate()
+                    self.writer.add_scalar('reward',reward,self.rewardindex)
+                    self.rewardindex += 1
+                state = ns
+
+    def paramupdate(self):
+        for epoch in range(self.epoch):
+            self.learnaneps()
 
     def collect(self,learn = True):
         
@@ -61,20 +89,8 @@ class OnlineAgent(BasePolicy):
                 action = self.action(state)
                 ns,r,done,_ = self.env.step(action)
                 self.buffer.push_memory(state,action,r,ns)
-                if learn:
-                    self.learnanapoch()
                 state = ns
-                id += 1
-                if id % 16 == 0:
-                    self._softupdate()
 
-        # for p
-        # pools = mp.Pool(self.parallelnum)
-        # threads = [pools.apply_async(p.parallelcollect,args=(self.collectsteps,self.action)) for p in self.parallellist]
-        # print("thread is",threads)
-        # results = [p.get() for p in threads]
-        # print(results)
-        # self
     def _softupdate(self):
         for target,param in zip(self.targetactornet.parameters(),self.actornet.parameters()):
             target.data.copy_(
@@ -92,29 +108,31 @@ class OnlineAgent(BasePolicy):
         # result = self.parallellist[0].valid(self.validatetime,self.actornet)
         # print("result is",result)
         reward = 0
-        for _ in range(8):
+        for _ in range(self.validatetime):
             done = False
-            state = self.env.reset()
+            state = self.testenv.reset()
             while done == False:
-                action = self.action(state)
-                ns,r,done,_ = self.env.step(action)
+                action = self.action(state,noise=False)
+                ns,r,done,_ = self.testenv.step(action)
                 # reward = self.actornet(
                 reward += r
                 # self.buffer.push_memory(state,action,r,ns)
                 state = ns
-        return reward/8
-    def learn(self):
-        from tqdm import tqdm
-        self.collect(learn=False)
-        for epoch in tqdm(range(self.epoch)):
-            self.collect()
-            # for _ in range(4):
-            # self.learnanapoch()
-            if epoch % 8 == 0:
-                reward = self.policyvalidate()
+        return reward/self.validatetime
+    # def learn(self):
+    #     from tqdm import tqdm
+    #     self.collect(learn=False)
+    #     for epoch in tqdm(range(self.epoch)):
+    #         self.collect()
+    #         # for _ in range(4):
+    #         # self.learnanapoch()
+    #         self.learnanapoch()
+    #         self._softupdate()
+    #         if epoch % 8 == 0:
+    #             reward = self.policyvalidate()
                 
-                self.writer.add_scalar("reward",reward,epoch)
-            pass
+    #             self.writer.add_scalar("reward",reward,epoch)
+    #         pass
     
     def random(self):
         from tqdm import tqdm
@@ -155,7 +173,7 @@ class OnlineAgent(BasePolicy):
         # exit()
         loss = F.mse_loss(current_value,expect_value,reduction='sum')
         loss.backward()
-        self.writer.add_scalar("loss",loss,self.losstriger)
+        self.writer.add_scalar("reward/loss",loss,self.losstriger)
         self.optimizercritic.step()
     
     def updateActor(self):
@@ -164,5 +182,5 @@ class OnlineAgent(BasePolicy):
         current_value = (leftcurrent + rightcurrent)/2
         expectationreward = -torch.sum(current_value)
         expectationreward.backward()
-        self.writer.add_scalar('value',expectationreward,self.losstriger)
+        self.writer.add_scalar('reward/value',expectationreward,self.losstriger)
         self.optimizeractor.step()
