@@ -43,7 +43,7 @@ class OnlineAgent(BasePolicy):
         self.episteps = 1024
         self.nabla = nabla
         self.buffer = buffer(state_dim=self.state_dim,action_dim=self.action_dim,max_size=int(1e6))
-        self.writer = SummaryWriter("./logs/DDPGDueling")
+        self.writer = SummaryWriter("./logs/DDPGDueling{}".format(envname))
         self.losstriger = 1
         self.testenv = gym.make(envname)
         self.noiseadd = OrnsteinUhlenbeckActionNoise(mu=np.zeros(self.action_dim),sigma=0.2)

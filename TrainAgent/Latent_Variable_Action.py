@@ -70,7 +70,7 @@ class LAPOAgent(object):
         from tqdm import tqdm
         for epoch in tqdm(range(self.epoch)):
             result = self.validate()
-            self.writer('LAPO/baseline',result,epoch)
+            self.writer.add_scalar('LAPO/baseline',result,epoch)
     def learn(self):
         from tqdm import tqdm
         _id = 1
